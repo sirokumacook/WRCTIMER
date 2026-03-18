@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MODERN WRC TIMER - V5</title>
+    <title>MODERN WRC TIMER - V6</title>
     <style>
         /* =========================================
            FONTS & TYPOGRAPHY
@@ -72,10 +72,10 @@
 
         #ui-banner {
             width: var(--ui-width); height: 100px;
-            transform: scale(var(--ui-scale)) translateZ(0); /* translateZでハードウェアアクセラレーションを強制しクリッピングを綺麗に */
+            transform: scale(var(--ui-scale)) translateZ(0); 
             transform-origin: bottom center;
             position: relative;
-            /* UI全体の角を丸くし、はみ出た部分（カーテン含む）を切り抜く */
+            /* 全体の角を丸くして、はみ出たものを切り抜く */
             border-top-left-radius: 30px;
             border-top-right-radius: 30px;
             overflow: hidden; 
@@ -89,12 +89,11 @@
         /* オレンジのカーテン（ワイプ演出用） */
         #ui-curtain {
             position: absolute; top: 0; bottom: 0;
-            width: 150%; left: -180%; /* 画面外の左からスタート */
+            width: 150%; left: -180%; 
             background-color: var(--orange);
             transform: skewX(var(--angle)); z-index: 10;
-            /* より滑らかなイージング関数を使用 */
-            transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             pointer-events: none;
+            /* JSで動的に transition を付与します */
         }
 
         /* 中央下層：グレーのベースパネル */
@@ -106,26 +105,10 @@
             box-shadow: inset 1px 1px 1px rgba(255,255,255,0.2), inset -1px 0px 2px rgba(0,0,0,0.5);
         }
 
-        /* 左端：オレンジの起点 */
-        .layer-orange {
-            position: absolute; left: 0; bottom: 0; width: 320px; height: 100px;
-            background-color: var(--orange);
-            /* 親要素で丸めているので純粋な斜めカットだけでOK */
-            clip-path: polygon(0 0, 100% 0, calc(100% - 32px) 100%, 0 100%);
-            z-index: 3; display: flex; align-items: center; justify-content: center;
-            padding-right: 20px;
-            box-shadow: inset -2px 0 0 rgba(0,0,0,0.15);
-        }
-        #timer-display {
-            position: relative; z-index: 5;
-            font-size: 56px; letter-spacing: 2px; line-height: 1; transform: translateY(2px);
-        }
-
-        /* 中央上層：ネイビーの細長いインセット */
+        /* 中央上層：ネイビーの細長いインセット（グレーの中を基準に配置） */
         .layer-navy {
             position: absolute; top: 15px; left: 40px;
-            width: 380px; /* 固定幅に変更 */
-            height: 38px;
+            width: 380px; height: 38px;
             background-color: var(--navy); transform: skewX(var(--angle)); transform-origin: bottom left;
             z-index: 2; display: flex; align-items: center;
             border-left: 4px solid var(--orange); border-right: 4px solid var(--orange);
@@ -139,11 +122,10 @@
             align-items: center; font-size: 20px; letter-spacing: 3px; color: #E2E8F0;
         }
 
-        /* 流れる文字 (Marquee) */
+        /* 流れる文字 (グレーの中を基準に配置) */
         .marquee-track {
             position: absolute; top: 60px; left: 30px; right: 20px; height: 30px;
             overflow: hidden; display: flex; align-items: center;
-            /* %ではなく両端30pxの固定値でフェードアウトさせる */
             -webkit-mask-image: linear-gradient(to right, transparent 0px, black 30px, black calc(100% - 30px), transparent 100%);
             mask-image: linear-gradient(to right, transparent 0px, black 30px, black calc(100% - 30px), transparent 100%);
         }
@@ -153,6 +135,20 @@
             padding-left: 100%; animation: scroll-text 15s linear infinite; font-weight: bold;
         }
         @keyframes scroll-text { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
+
+        /* 左端：オレンジの起点 */
+        .layer-orange {
+            position: absolute; left: 0; bottom: 0; width: 320px; height: 100px;
+            background-color: var(--orange);
+            clip-path: polygon(0 0, 100% 0, calc(100% - 32px) 100%, 0 100%);
+            z-index: 3; display: flex; align-items: center; justify-content: center;
+            padding-right: 20px;
+            box-shadow: inset -2px 0 0 rgba(0,0,0,0.15);
+        }
+        #timer-display {
+            position: relative; z-index: 5;
+            font-size: 56px; letter-spacing: 2px; line-height: 1; transform: translateY(2px);
+        }
 
         /* =========================================
            SETTINGS MODAL
@@ -250,13 +246,19 @@
                 <label><span>UI HEIGHT (Scale)</span> <span id="val-ui-scale">1.0</span></label>
                 <input type="range" id="config-ui-scale" min="0.5" max="2.0" step="0.1" value="1.0">
             </div>
-            <div class="form-group">
-                <label>MARQUEE TEXT (Scrolling)</label>
-                <input type="text" id="config-marquee" value="NEXT STAGE STARTING SOON">
+            <div class="form-group flex-inputs">
+                <div style="flex:1;">
+                    <label>MARQUEE TEXT</label>
+                    <input type="text" id="config-marquee" value="NEXT STAGE STARTING SOON">
+                </div>
+                <div style="width: 120px;">
+                    <label>SPEED (Sec)</label>
+                    <input type="number" id="config-marquee-speed" value="15" min="1">
+                </div>
             </div>
             <div class="form-group">
-                <label>SCROLL SPEED (Seconds)</label>
-                <input type="number" id="config-marquee-speed" value="15" min="1">
+                <label>CURTAIN WIPE SPEED (Seconds)</label>
+                <input type="number" id="config-curtain-speed" value="0.4" step="0.1" min="0.1">
             </div>
 
             <div class="section-title">BACKGROUND IMAGES</div>
@@ -296,12 +298,13 @@
             <div id="ui-curtain"></div>
             
             <div id="ui-content-wrapper">
-                <div class="layer-gray"></div>
-                <div class="layer-navy">
-                    <div class="navy-content" id="display-name">STAGE 1</div>
-                </div>
-                <div class="marquee-track">
-                    <div class="marquee-text" id="display-marquee"></div>
+                <div class="layer-gray">
+                    <div class="layer-navy">
+                        <div class="navy-content" id="display-name">STAGE 1</div>
+                    </div>
+                    <div class="marquee-track">
+                        <div class="marquee-text" id="display-marquee"></div>
+                    </div>
                 </div>
                 <div class="layer-orange">
                     <div id="timer-display">00:00:00</div>
@@ -333,7 +336,7 @@
         let timerState = {
             mode: 'duration', isRunning: false, remainingMs: 300000, endTime: 0,
             name: 'STAGE 1', marquee: 'NEXT STAGE STARTING SOON', marqueeSpeed: 15,
-            uiWidth: 800, uiScale: 1.0, bgInterval: 10, bgmVolume: 0.5
+            uiWidth: 800, uiScale: 1.0, curtainSpeed: 0.4, bgInterval: 10, bgmVolume: 0.5
         };
         let uiVisible = true;
         let isWiping = false;
@@ -387,7 +390,7 @@
         // SETTINGS & LOGIC
         // =========================================
         function loadSettings() {
-            const saved = localStorage.getItem('modernWrcTimerData_v4');
+            const saved = localStorage.getItem('modernWrcTimerData_v6');
             if (saved) {
                 timerState = Object.assign(timerState, JSON.parse(saved));
                 configMode.value = timerState.mode;
@@ -396,6 +399,7 @@
                 document.getElementById('config-marquee-speed').value = timerState.marqueeSpeed;
                 document.getElementById('config-ui-width').value = timerState.uiWidth;
                 document.getElementById('config-ui-scale').value = timerState.uiScale || 1.0;
+                document.getElementById('config-curtain-speed').value = timerState.curtainSpeed || 0.4;
                 document.getElementById('config-bg-interval').value = timerState.bgInterval;
                 document.getElementById('config-bgm-volume').value = timerState.bgmVolume;
                 
@@ -408,10 +412,11 @@
             timerState.marqueeSpeed = document.getElementById('config-marquee-speed').value || 15;
             timerState.uiWidth = document.getElementById('config-ui-width').value || 800;
             timerState.uiScale = document.getElementById('config-ui-scale').value || 1.0;
+            timerState.curtainSpeed = parseFloat(document.getElementById('config-curtain-speed').value) || 0.4;
             timerState.bgInterval = document.getElementById('config-bg-interval').value || 10;
             timerState.bgmVolume = document.getElementById('config-bgm-volume').value || 0.5;
 
-            localStorage.setItem('modernWrcTimerData_v4', JSON.stringify(timerState));
+            localStorage.setItem('modernWrcTimerData_v6', JSON.stringify(timerState));
             applyGlobalSettings();
 
             // 画像の処理
@@ -419,15 +424,15 @@
             if (imgInput.files.length > 0) {
                 bgImages = Array.from(imgInput.files);
                 saveMediaToDB("images", bgImages); startBgSlideshow();
-                imgInput.value = ''; // 処理後にインプットをリセット
+                imgInput.value = '';
             }
             
-            // BGMの処理（ファイルが新たにアップロードされた時のみキューをリセット）
+            // BGMの処理
             const bgmInput = document.getElementById('config-bgm');
             if (bgmInput.files.length > 0) {
                 bgmFiles = Array.from(bgmInput.files);
                 saveMediaToDB("bgm", bgmFiles); bgmQueue = []; playNextBgm();
-                bgmInput.value = ''; // これにより設定を閉じても曲が変わらない
+                bgmInput.value = '';
             }
         }
 
@@ -467,7 +472,7 @@
                 }
             }
             displayName.innerText = timerState.name;
-            localStorage.setItem('modernWrcTimerData_v4', JSON.stringify(timerState));
+            localStorage.setItem('modernWrcTimerData_v6', JSON.stringify(timerState));
             updateTimerToggleBtn();
         }
 
@@ -481,7 +486,7 @@
             } else {
                 if (timerState.mode === 'duration') timerState.remainingMs = Math.max(0, timerState.endTime - Date.now());
             }
-            localStorage.setItem('modernWrcTimerData_v4', JSON.stringify(timerState));
+            localStorage.setItem('modernWrcTimerData_v6', JSON.stringify(timerState));
             updateTimerToggleBtn();
         }
 
@@ -596,9 +601,10 @@
             const curtain = document.getElementById('ui-curtain');
             const wrapper = document.getElementById('ui-content-wrapper');
             const iconSpan = btnToggleUi.querySelector('span');
+            const speed = timerState.curtainSpeed || 0.4;
 
             // 1. カーテンを滑らかにかぶせる (Slide in)
-            curtain.style.transition = 'left 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+            curtain.style.transition = `left ${speed}s cubic-bezier(0.4, 0, 0.2, 1)`;
             curtain.style.left = '-20%'; 
 
             setTimeout(() => {
@@ -617,8 +623,8 @@
                     setTimeout(() => {
                         isWiping = false;
                     }, 50);
-                }, 400);
-            }, 400);
+                }, speed * 1000);
+            }, speed * 1000);
         });
 
         // =========================================
