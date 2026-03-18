@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WRC Style Timer Broadcast</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
+    <style>
+        /* フォントの読み込み */
+        @font-face {
+            font-family: 'WRCCleanBold';
+            src: url('./WRCCleanBold.ttf') format('truetype');
+        }
+        @font-face {
+            font-family: 'GenEiLateGoP_v2';
+            src: url('./GenEiLateGoP_v2.ttf') format('truetype');
+        }
+
+        :root {
+            --wrc-orange: #FF4500;
+            --bg-dark: rgba(0, 0, 0, 0.7);
+            --text-light: #ffffff;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            font-family: 'GenEiLateGoP_v2', sans-serif;
+            overflow: hidden;
+            background-color: #000;
+        }
+
+        /* 背景画像スライダー */
+        #bg-slider {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1;
+            background-size: cover;
+            background-position: center;
+            transition: background-image 2s ease-in-out;
+        }
+
+        /* 右上のコントロールボタン */
+        .top-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            border: 1px solid var(--wrc-orange);
+            padding: 8px 16px;
+            cursor: pointer;
+            font-family: 'GenEiLateGoP_v2', sans-serif;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+        button:hover { background-color: var(--wrc-orange); }
+
+        /* WRCボトムUI */
+        #wrc-ui {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            display: flex;
+            align-items: flex-end;
+            z-index: 50;
+            transition: transform 0.3s ease;
+        }
+        #wrc-ui.hidden { transform: translateY(100%); }
+
+        /* 一番左のオレンジタイマー枠 */
+        .timer-box {
+            background-color: var(--wrc-orange);
+            color: white;
+            padding: 15px 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            clip-path: polygon(0 0, 100% 0, 95% 100%, 0 100%); /* 少し斜めにするWRC風アクセント */
+            min-width: 250px;
+        }
+        .timer-text {
+            font-family: 'WRCCleanBold', sans-serif;
+            font-size: 56px;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        /* タイマー右側の情報エリア */
+        .info-area {
+            flex-grow: 1;
+            padding: 0 30px 15px 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+        }
+
+        /* オレンジの線とタイトル */
+        .title-container {
+            border-bottom: 4px solid var(--wrc-orange);
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: flex-end;
+        }
+        .title-text {
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-transform: uppercase;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+        }
+
+        /* 流れる文字（マーキー） */
+        .marquee-wrapper {
+            width: 100%;
+            overflow: hidden;
+            /* 端を半透明にするマスク */
+            mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+            -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+        }
+        .marquee-content {
+            display: inline-block;
+            white-space: nowrap;
+            color: white;
+            font-size: 20px;
+            animation: marquee 20s linear infinite;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+        }
+        @keyframes marquee {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+        }
+
+        /* BGM情報表示 */
+        #bgm-info {
+            position: absolute;
+            bottom: 120px;
+            right: 20px;
+            background: var(--bg-dark);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border-left: 4px solid var(--wrc-orange);
+            opacity: 0.8;
+        }
+        #bgm-info img { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; }
+        
+        /* 設定モーダル */
+        #settings-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); z-index: 200; justify-content: center; align-items: center;
+            color: white;
+        }
+        .modal-content {
+            background: #222; padding: 30px; border-radius: 8px; width: 600px; max-height: 80vh; overflow-y: auto;
+            border: 1px solid var(--wrc-orange);
+        }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 5px; color: var(--wrc-orange); }
+        input[type="text"], input[type="number"], input[type="time"], select {
+            width: 100%; padding: 8px; box-sizing: border-box; background: #333; color: white; border: 1px solid #555;
+            font-family: 'GenEiLateGoP_v2', sans-serif;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="bg-slider"></div>
+
+    <div class="top-controls">
+        <button id="toggle-ui-btn">UI表示/非表示</button>
+        <button id="settings-btn">設定 / 初期セットアップ</button>
+    </div>
+
+    <div id="bgm-info" style="display: none;">
+        <img id="bgm-art" src="" alt="Album Art">
+        <div>
+            <div style="font-size: 12px; color: #aaa;">Now Playing</div>
+            <div id="bgm-title" style="font-weight: bold;">Track Name</div>
+            <button id="next-bgm-btn" style="margin-top:5px; padding: 2px 8px; font-size: 12px;">次の曲へ</button>
+        </div>
+    </div>
+
+    <div id="wrc-ui">
+        <div class="timer-box">
+            <span class="timer-text" id="timer-display">00:00:00</span>
+        </div>
+        <div class="info-area">
+            <div class="title-container">
+                <span class="title-text" id="ui-title">WRC LIVE STAGE</span>
+            </div>
+            <div class="marquee-wrapper">
+                <div class="marquee-content" id="ui-marquee">ここに流れるニュースや情報を入力します。設定から変更可能です。</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="settings-modal">
+        <div class="modal-content">
+            <h2>システム設定</h2>
+            
+            <div class="form-group">
+                <label>タイマーモード</label>
+                <select id="timer-mode">
+                    <option value="duration">指定時間タイマー (例: 1時間30分)</option>
+                    <option value="target">時刻指定タイマー (例: 15時00分まで)</option>
+                    <option value="current">現在時刻を表示</option>
+                </select>
+            </div>
+
+            <div id="duration-inputs" class="form-group">
+                <label>タイマー時間</label>
+                <input type="number" id="timer-hours" placeholder="時間" value="0" min="0" style="width: 48%;">
+                <input type="number" id="timer-minutes" placeholder="分" value="10" min="0" max="59" style="width: 48%;">
+            </div>
+
+            <div id="target-inputs" class="form-group" style="display: none;">
+                <label>目標時刻</label>
+                <input type="time" id="timer-target-time">
+            </div>
+
+            <div class="form-group">
+                <label>タイトルテキスト (オレンジ線上の文字)</label>
+                <input type="text" id="setting-title" value="WRC LIVE STAGE">
+            </div>
+
+            <div class="form-group">
+                <label>スクロールテキスト (ループする文字)</label>
+                <input type="text" id="setting-marquee" value="ここに流れるニュースや情報を入力します。設定から変更可能です。">
+            </div>
+
+            <div class="form-group">
+                <label>背景画像 (複数選択可)</label>
+                <input type="file" id="bg-upload" accept="image/*" multiple>
+                <small>※画像は端末に保存され、ゆっくり切り替わります</small>
+            </div>
+
+            <div class="form-group">
+                <label>BGMファイル (複数選択可)</label>
+                <input type="file" id="bgm-upload" accept="audio/*" multiple>
+                <small>※シャッフル＆ループ再生されます</small>
+            </div>
+
+            <button id="save-settings-btn" style="width: 100%; padding: 12px; font-size: 18px; background: var(--wrc-orange);">保存して開始</button>
+            <button id="close-modal-btn" style="width: 100%; padding: 12px; margin-top: 10px; background: transparent;">キャンセル</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 状態管理 ---
+        let appState = {
+            targetTimestamp: 0,
+            mode: 'duration',
+            title: 'WRC LIVE STAGE',
+            marquee: 'ここに流れるニュースや情報を入力します。',
+            bgImages: [], // DataURLの配列
+            bgmFiles: [], // File Objectデータの配列 (IndexedDB保存用)
+            bgmCurrentIndex: 0
+        };
+
+        // --- DOM要素 ---
+        const timerDisplay = document.getElementById('timer-display');
+        const uiTitle = document.getElementById('ui-title');
+        const uiMarquee = document.getElementById('ui-marquee');
+        const bgSlider = document.getElementById('bg-slider');
+        const wrcUi = document.getElementById('wrc-ui');
+        
+        let audioPlayer = new Audio();
+        let bgInterval;
+
+        // --- 初期化処理 ---
+        async function init() {
+            // localforageから保存データを読み込み（ページを閉じてもタイマーが続く仕組み）
+            const savedState = await localforage.getItem('wrcAppState');
+            if (savedState) {
+                appState = { ...appState, ...savedState };
+            }
+
+            updateUITexts();
+            startTimer();
+            if (appState.bgImages.length > 0) startBgSlider();
+            if (appState.bgmFiles.length > 0) playBGM();
+
+            // 定期的なタイマー更新
+            setInterval(updateTimerDisplay, 1000);
+            updateTimerDisplay(); // 初回即時実行
+        }
+
+        // --- タイマー処理 ---
+        function startTimer() {
+            if (appState.mode === 'duration') {
+                // UIから設定された場合のみ現在時刻から計算。読み込み時は何もしない（既存のtargetTimestampを使用）
+            } else if (appState.mode === 'target') {
+                // targetは毎日その時刻として扱うなどのロジックも可能ですが、今回は設定された絶対時刻
+            }
+        }
+
+        function updateTimerDisplay() {
+            if (appState.mode === 'current') {
+                const now = new Date();
+                timerDisplay.textContent = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+                return;
+            }
+
+            const now = Date.now();
+            let diff = appState.targetTimestamp - now;
+
+            if (diff <= 0) {
+                timerDisplay.textContent = "00:00:00";
+                return;
+            }
+
+            const h = Math.floor(diff / (1000 * 60 * 60));
+            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor((diff % (1000 * 60)) / 1000);
+
+            timerDisplay.textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+
+        // --- 背景画像スライダー ---
+        let currentBgIndex = 0;
+        function startBgSlider() {
+            clearInterval(bgInterval);
+            if(appState.bgImages.length === 0) return;
+            bgSlider.style.backgroundImage = `url(${appState.bgImages[0]})`;
+            
+            if(appState.bgImages.length > 1) {
+                bgInterval = setInterval(() => {
+                    currentBgIndex = (currentBgIndex + 1) % appState.bgImages.length;
+                    bgSlider.style.backgroundImage = `url(${appState.bgImages[currentBgIndex]})`;
+                }, 10000); // 10秒ごとにゆっくり切り替え
+            }
+        }
+
+        // --- BGMプレイヤー ---
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        async function playBGM() {
+            if (appState.bgmFiles.length === 0) return;
+            
+            document.getElementById('bgm-info').style.display = 'flex';
+            
+            const fileData = appState.bgmFiles[appState.bgmCurrentIndex];
+            // 保存されたArrayBufferをBlobに変換して再生
+            const blob = new Blob([fileData.buffer], { type: fileData.type });
+            const url = URL.createObjectURL(blob);
+            
+            audioPlayer.src = url;
+            audioPlayer.play().catch(e => console.log("ブラウザの自動再生ブロック:", e));
+            
+            document.getElementById('bgm-title').textContent = fileData.name;
+            // WRCっぽくダミーのアルバムアートか、デフォルトのアイコンを設定
+            document.getElementById('bgm-art').src = "data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23FF4500'%3E%3Cpath d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z'/%3E%3C/svg%3E";
+
+            audioPlayer.onended = () => {
+                nextBGM();
+            };
+        }
+
+        function nextBGM() {
+            if (appState.bgmFiles.length === 0) return;
+            appState.bgmCurrentIndex = (appState.bgmCurrentIndex + 1) % appState.bgmFiles.length;
+            localforage.setItem('wrcAppState', appState); // インデックスを保存
+            playBGM();
+        }
+        document.getElementById('next-bgm-btn').addEventListener('click', nextBGM);
+
+        // --- UI操作 ---
+        document.getElementById('toggle-ui-btn').addEventListener('click', () => {
+            wrcUi.classList.toggle('hidden');
+        });
+
+        // --- 設定モーダル関連 ---
+        const modal = document.getElementById('settings-modal');
+        document.getElementById('settings-btn').addEventListener('click', () => modal.style.display = 'flex');
+        document.getElementById('close-modal-btn').addEventListener('click', () => modal.style.display = 'none');
+
+        document.getElementById('timer-mode').addEventListener('change', (e) => {
+            document.getElementById('duration-inputs').style.display = e.target.value === 'duration' ? 'block' : 'none';
+            document.getElementById('target-inputs').style.display = e.target.value === 'target' ? 'block' : 'none';
+        });
+
+        // ファイル読み込みユーティリティ
+        const readFileAsDataURL = (file) => new Promise(resolve => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result);
+            reader.readAsDataURL(file);
+        });
+        const readFileAsArrayBuffer = (file) => new Promise(resolve => {
+            const reader = new FileReader();
+            reader.onload = e => resolve({ name: file.name, type: file.type, buffer: e.target.result });
+            reader.readAsArrayBuffer(file);
+        });
+
+        document.getElementById('save-settings-btn').addEventListener('click', async () => {
+            appState.mode = document.getElementById('timer-mode').value;
+            appState.title = document.getElementById('setting-title').value;
+            appState.marquee = document.getElementById('setting-marquee').value;
+
+            // タイマー計算
+            const now = Date.now();
+            if (appState.mode === 'duration') {
+                const h = parseInt(document.getElementById('timer-hours').value) || 0;
+                const m = parseInt(document.getElementById('timer-minutes').value) || 0;
+                appState.targetTimestamp = now + (h * 60 * 60 * 1000) + (m * 60 * 1000);
+            } else if (appState.mode === 'target') {
+                const timeStr = document.getElementById('timer-target-time').value;
+                if(timeStr) {
+                    const [h, m] = timeStr.split(':');
+                    const targetDate = new Date();
+                    targetDate.setHours(h, m, 0, 0);
+                    if (targetDate.getTime() < now) targetDate.setDate(targetDate.getDate() + 1); // 過去なら翌日
+                    appState.targetTimestamp = targetDate.getTime();
+                }
+            }
+
+            // 画像処理
+            const bgFiles = document.getElementById('bg-upload').files;
+            if (bgFiles.length > 0) {
+                appState.bgImages = [];
+                for (let file of bgFiles) {
+                    appState.bgImages.push(await readFileAsDataURL(file));
+                }
+                startBgSlider();
+            }
+
+            // BGM処理
+            const bgmFiles = document.getElementById('bgm-upload').files;
+            if (bgmFiles.length > 0) {
+                appState.bgmFiles = [];
+                for (let file of bgmFiles) {
+                    appState.bgmFiles.push(await readFileAsArrayBuffer(file));
+                }
+                shuffleArray(appState.bgmFiles);
+                appState.bgmCurrentIndex = 0;
+                playBGM();
+            }
+
+            // 端末に保存
+            await localforage.setItem('wrcAppState', appState);
+            
+            updateUITexts();
+            updateTimerDisplay();
+            modal.style.display = 'none';
+        });
+
+        function updateUITexts() {
+            uiTitle.textContent = appState.title;
+            uiMarquee.textContent = appState.marquee;
+            
+            // モーダル側にも反映
+            document.getElementById('timer-mode').value = appState.mode;
+            document.getElementById('setting-title').value = appState.title;
+            document.getElementById('setting-marquee').value = appState.marquee;
+            document.getElementById('timer-mode').dispatchEvent(new Event('change'));
+        }
+
+        // 起動
+        init();
+    </script>
+</body>
+</html>
