@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MODERN WRC TIMER - ADVANCED</title>
+    <title>MODERN WRC TIMER - V3</title>
     <style>
         /* =========================================
            FONTS & TYPOGRAPHY
@@ -27,6 +27,7 @@
             --gray-light: #5A6273;
             --navy: #1C2233;
             --angle: -18deg;
+            --ui-width: 800px; /* JSで動的に変更されます */
         }
 
         body {
@@ -59,9 +60,11 @@
            ========================================= */
         #ui-banner {
             position: fixed;
-            bottom: 0; /* 画面下に完全にひっつく */
-            left: 0;
-            width: 760px; /* 横幅を小さく固定 */
+            bottom: 0;
+            /* 画面の中央に自動配置 */
+            left: 50%;
+            transform: translateX(-50%);
+            width: var(--ui-width);
             height: 100px;
             pointer-events: none;
         }
@@ -71,7 +74,7 @@
             position: absolute;
             left: 0;
             bottom: 0;
-            width: 260px;
+            width: 320px; /* HH:MM:SS用に拡張 */
             height: 100px;
             background-color: var(--orange);
             clip-path: polygon(0 0, 100% 0, calc(100% - 32px) 100%, 0 100%);
@@ -84,7 +87,7 @@
         }
 
         #timer-display {
-            font-size: 64px;
+            font-size: 56px;
             letter-spacing: 2px;
             line-height: 1;
             transform: translateY(2px);
@@ -93,12 +96,11 @@
         /* 中央下層：グレーのベースパネル */
         .layer-gray {
             position: absolute;
-            left: 230px; 
+            left: 290px; 
             bottom: 0;
-            width: 530px; /* 幅を縮小 */
+            width: calc(100% - 290px); /* オレンジパネルの残りを埋める */
             height: 100px;
             background: linear-gradient(160deg, var(--gray-light) 0%, var(--gray-base) 20%, #2A3141 100%);
-            /* 下ではなく「上の角」を丸くする */
             border-top-right-radius: 30px;
             z-index: 1;
             box-shadow: inset 1px 1px 1px rgba(255,255,255,0.2), inset -1px 0px 2px rgba(0,0,0,0.5);
@@ -107,9 +109,9 @@
         /* 中央上層：ネイビーの細長いインセット */
         .layer-navy {
             position: absolute;
-            top: 15px; /* 上部に配置 */
-            left: 60px;
-            width: 380px;
+            top: 15px;
+            left: 40px;
+            width: calc(100% - 80px);
             height: 38px;
             background-color: var(--navy);
             transform: skewX(var(--angle));
@@ -125,7 +127,10 @@
         .navy-content {
             transform: skewX(calc(var(--angle) * -1));
             width: 100%;
-            padding: 0 30px;
+            /* タイトルを完全に中央へ */
+            display: flex;
+            justify-content: center;
+            align-items: center;
             font-size: 20px;
             letter-spacing: 3px;
             color: #E2E8F0;
@@ -135,23 +140,23 @@
         .marquee-track {
             position: absolute;
             top: 60px;
-            left: 70px;
-            width: 420px;
+            left: 20px; /* ギリギリまで広げる */
+            right: 20px;
             height: 30px;
             overflow: hidden;
             display: flex;
             align-items: center;
-            /* 背景の透明度（初期値0、設定で変更可） */
-            background-color: rgba(0, 0, 0, 0); 
-            border-radius: 4px;
+            /* 背景を完全に削除し、両端が半透明にフェードアウトするマスクを適用 */
+            -webkit-mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
+            mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
         }
 
         .marquee-text {
             white-space: nowrap;
             font-size: 18px;
             letter-spacing: 2px;
+            color: #FFFFFF; /* すべて白で統一 */
             padding-left: 100%;
-            /* アニメーション秒数はJSで動的変更 */
             animation: scroll-text 15s linear infinite; 
             font-weight: bold;
         }
@@ -209,13 +214,12 @@
             background: var(--navy);
             border-top: 5px solid var(--orange);
             padding: 30px;
-            width: 500px;
+            width: 550px;
             max-height: 85vh;
             overflow-y: auto;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
 
-        /* Scrollbar styles for modal */
         .modal-content::-webkit-scrollbar { width: 8px; }
         .modal-content::-webkit-scrollbar-track { background: var(--gray-base); }
         .modal-content::-webkit-scrollbar-thumb { background: var(--orange); }
@@ -230,12 +234,16 @@
 
         .form-group { margin-bottom: 20px; }
         .form-group label {
-            display: block;
+            display: flex;
+            justify-content: space-between;
             margin-bottom: 5px;
             font-size: 13px;
             color: #A0AABF;
         }
-        .form-group input, .form-group select {
+        .form-group input[type="text"], 
+        .form-group input[type="number"], 
+        .form-group input[type="time"], 
+        .form-group select {
             width: 100%;
             padding: 8px;
             background: #0d1117;
@@ -243,6 +251,10 @@
             color: white;
             font-family: inherit;
             box-sizing: border-box;
+        }
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--orange);
         }
         input[type="file"] { padding: 5px; font-size: 12px; }
 
@@ -254,6 +266,13 @@
             margin: 25px 0 10px 0;
             padding-left: 10px;
             border-left: 3px solid var(--orange);
+        }
+
+        .timer-controls-box {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--gray-light);
+            padding: 15px;
+            margin-top: 10px;
         }
 
         #bgm-player-ui {
@@ -277,19 +296,21 @@
         .btn-row {
             display: flex;
             gap: 10px;
-            margin-top: 30px;
+            margin-top: 15px;
         }
         .btn-row button {
             flex: 1;
-            padding: 12px;
+            padding: 10px;
             font-family: inherit;
-            font-size: 16px;
+            font-size: 15px;
             border: none;
             cursor: pointer;
             font-weight: bold;
         }
         .btn-primary { background: var(--orange); color: white; }
         .btn-secondary { background: var(--gray-light); color: white; }
+        .btn-green { background: #2ea043; color: white; }
+        .btn-red { background: #da3633; color: white; }
 
         .hidden-field { display: none !important; }
     </style>
@@ -305,44 +326,49 @@
         <div class="modal-content">
             <h2>CONFIGURATION</h2>
             
-            <div class="section-title">TIMER SETTINGS</div>
-            <div class="form-group">
-                <select id="config-mode">
-                    <option value="duration">TIMER (MIN / SEC)</option>
-                    <option value="target">UNTIL TIME (HH:MM)</option>
-                    <option value="clock">CLOCK (CURRENT TIME)</option>
-                </select>
-            </div>
-            <div class="form-group flex-inputs" id="group-duration">
-                <input type="number" id="config-min" placeholder="MIN" min="0" value="5">
-                <input type="number" id="config-sec" placeholder="SEC" min="0" max="59" value="0">
-            </div>
-            <div class="form-group hidden-field" id="group-target">
-                <input type="time" id="config-target-time" value="12:00">
-            </div>
-            <div class="form-group">
-                <label>TIMER NAME</label>
-                <input type="text" id="config-name" value="STAGE 1">
+            <div class="section-title">TIMER CONTROL</div>
+            <div class="timer-controls-box">
+                <div class="form-group">
+                    <select id="config-mode">
+                        <option value="duration">TIMER (HH:MM:SS)</option>
+                        <option value="target">UNTIL TIME (HH:MM)</option>
+                        <option value="clock">CLOCK (CURRENT TIME)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group flex-inputs" id="group-duration">
+                    <input type="number" id="config-hour" placeholder="HH" min="0" value="0">
+                    <input type="number" id="config-min" placeholder="MM" min="0" max="59" value="5">
+                    <input type="number" id="config-sec" placeholder="SS" min="0" max="59" value="0">
+                </div>
+                
+                <div class="form-group hidden-field" id="group-target">
+                    <input type="time" id="config-target-time" value="12:00">
+                </div>
+
+                <div class="form-group">
+                    <label>TIMER TITLE</label>
+                    <input type="text" id="config-name" value="STAGE 1">
+                </div>
+
+                <div class="btn-row">
+                    <button class="btn-primary" id="btn-timer-save">SAVE / RESET TIMER</button>
+                    <button class="btn-green" id="btn-timer-toggle">▶ START / STOP</button>
+                </div>
             </div>
 
-            <div class="section-title">MARQUEE TEXT SETTINGS</div>
+            <div class="section-title">DISPLAY & UI SETTINGS</div>
             <div class="form-group">
-                <label>TEXT</label>
+                <label><span>UI WIDTH (px)</span> <span id="val-ui-width">800</span></label>
+                <input type="range" id="config-ui-width" min="600" max="1600" step="10" value="800">
+            </div>
+            <div class="form-group">
+                <label>MARQUEE TEXT (Scrolling)</label>
                 <input type="text" id="config-marquee" value="NEXT STAGE STARTING SOON">
             </div>
             <div class="form-group">
-                <label>TEXT COLORS (Comma separated. e.g: #FFFFFF, #FF4500)</label>
-                <input type="text" id="config-marquee-colors" value="#A0AABF, #FFFFFF, #FF4500">
-            </div>
-            <div class="form-group flex-inputs">
-                <div style="flex:1;">
-                    <label>SPEED (Seconds)</label>
-                    <input type="number" id="config-marquee-speed" value="15" min="1">
-                </div>
-                <div style="flex:1;">
-                    <label>TRACK BG OPACITY (0.0 - 1.0)</label>
-                    <input type="number" id="config-marquee-opacity" step="0.1" min="0" max="1" value="0">
-                </div>
+                <label>SCROLL SPEED (Seconds)</label>
+                <input type="number" id="config-marquee-speed" value="15" min="1">
             </div>
 
             <div class="section-title">BACKGROUND IMAGES</div>
@@ -359,6 +385,10 @@
             <div class="form-group">
                 <label>UPLOAD MP3 (Multiple allowed - Auto Shuffle)</label>
                 <input type="file" id="config-bgm" multiple accept="audio/*">
+                
+                <label style="margin-top: 15px;"><span>VOLUME</span> <span id="val-bgm-volume">50%</span></label>
+                <input type="range" id="config-bgm-volume" min="0" max="1" step="0.05" value="0.5">
+
                 <div id="bgm-player-ui">
                     <span style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; width: 250px;">
                         🎵 <span id="current-bgm-title">No track</span>
@@ -367,9 +397,8 @@
                 </div>
             </div>
 
-            <div class="btn-row">
-                <button class="btn-primary" id="btn-start">START / SAVE</button>
-                <button class="btn-secondary" id="btn-close">CLOSE</button>
+            <div class="btn-row" style="margin-top: 30px;">
+                <button class="btn-secondary" id="btn-close" style="padding: 15px;">CLOSE SETTINGS</button>
             </div>
         </div>
     </div>
@@ -379,12 +408,12 @@
             <div class="layer-navy">
                 <div class="navy-content" id="display-name">STAGE 1</div>
             </div>
-            <div class="marquee-track" id="display-marquee-track">
+            <div class="marquee-track">
                 <div class="marquee-text" id="display-marquee"></div>
             </div>
         </div>
         <div class="layer-orange">
-            <div id="timer-display">00:00</div>
+            <div id="timer-display">00:00:00</div>
         </div>
     </div>
 
@@ -395,27 +424,30 @@
         const modal = document.getElementById('settings-modal');
         const btnSettings = document.getElementById('settings-btn');
         const btnClose = document.getElementById('btn-close');
-        const btnStart = document.getElementById('btn-start');
+        
+        // Timer Controls
+        const btnTimerSave = document.getElementById('btn-timer-save');
+        const btnTimerToggle = document.getElementById('btn-timer-toggle');
         const configMode = document.getElementById('config-mode');
         
         const displayTime = document.getElementById('timer-display');
         const displayName = document.getElementById('display-name');
         const displayMarquee = document.getElementById('display-marquee');
-        const displayMarqueeTrack = document.getElementById('display-marquee-track');
-        const currentBgmTitle = document.getElementById('current-bgm-title');
 
         // =========================================
         // STATE
         // =========================================
         let timerState = {
             mode: 'duration',
+            isRunning: false,
+            remainingMs: 300000, // 5 minutes default
             endTime: 0,
             name: 'STAGE 1',
             marquee: 'NEXT STAGE STARTING SOON',
-            marqueeColors: '#A0AABF, #FFFFFF, #FF4500',
             marqueeSpeed: 15,
-            marqueeOpacity: 0,
-            bgInterval: 10
+            uiWidth: 800,
+            bgInterval: 10,
+            bgmVolume: 0.5
         };
 
         // =========================================
@@ -457,73 +489,144 @@
         }
 
         // =========================================
-        // SETTINGS LOGIC
+        // SETTINGS & LOGIC
         // =========================================
         function loadSettings() {
-            const saved = localStorage.getItem('modernWrcTimerData_v2');
+            const saved = localStorage.getItem('modernWrcTimerData_v3');
             if (saved) {
                 timerState = Object.assign(timerState, JSON.parse(saved));
                 
                 configMode.value = timerState.mode;
                 document.getElementById('config-name').value = timerState.name;
                 document.getElementById('config-marquee').value = timerState.marquee;
-                document.getElementById('config-marquee-colors').value = timerState.marqueeColors;
                 document.getElementById('config-marquee-speed').value = timerState.marqueeSpeed;
-                document.getElementById('config-marquee-opacity').value = timerState.marqueeOpacity;
+                document.getElementById('config-ui-width').value = timerState.uiWidth;
                 document.getElementById('config-bg-interval').value = timerState.bgInterval;
+                document.getElementById('config-bgm-volume').value = timerState.bgmVolume;
                 
                 updateFormVisibility();
-                updateStaticDisplay();
+                applyGlobalSettings();
+                updateTimerToggleBtn();
             }
         }
 
-        function saveSettings() {
+        function saveGlobalSettings() {
+            timerState.marquee = document.getElementById('config-marquee').value;
+            timerState.marqueeSpeed = document.getElementById('config-marquee-speed').value || 15;
+            timerState.uiWidth = document.getElementById('config-ui-width').value || 800;
+            timerState.bgInterval = document.getElementById('config-bg-interval').value || 10;
+            timerState.bgmVolume = document.getElementById('config-bgm-volume').value || 0.5;
+
+            localStorage.setItem('modernWrcTimerData_v3', JSON.stringify(timerState));
+            applyGlobalSettings();
+
+            // Background file check
+            const imgInput = document.getElementById('config-bg-images');
+            if (imgInput.files.length > 0) {
+                bgImages = Array.from(imgInput.files);
+                saveMediaToDB("images", bgImages);
+                startBgSlideshow();
+            }
+            
+            // BGM file check
+            const bgmInput = document.getElementById('config-bgm');
+            if (bgmInput.files.length > 0) {
+                bgmFiles = Array.from(bgmInput.files);
+                saveMediaToDB("bgm", bgmFiles);
+                bgmQueue = [];
+                playNextBgm();
+            }
+        }
+
+        function applyGlobalSettings() {
+            // Apply UI Width
+            document.documentElement.style.setProperty('--ui-width', `${timerState.uiWidth}px`);
+            document.getElementById('val-ui-width').innerText = timerState.uiWidth;
+            
+            // Apply Volume
+            document.getElementById('val-bgm-volume').innerText = Math.round(timerState.bgmVolume * 100) + '%';
+            if (currentAudio) currentAudio.volume = timerState.bgmVolume;
+
+            // Apply Marquee
+            displayMarquee.innerText = timerState.marquee;
+            displayMarquee.style.animationDuration = `${timerState.marqueeSpeed}s`;
+
+            // Reset Background Timer if needed
+            startBgSlideshow();
+        }
+
+        // --- TIMER SPECIFIC LOGIC ---
+        function saveAndResetTimer() {
             timerState.mode = configMode.value;
             timerState.name = document.getElementById('config-name').value;
-            timerState.marquee = document.getElementById('config-marquee').value;
-            timerState.marqueeColors = document.getElementById('config-marquee-colors').value;
-            timerState.marqueeSpeed = document.getElementById('config-marquee-speed').value || 15;
-            timerState.marqueeOpacity = document.getElementById('config-marquee-opacity').value || 0;
-            timerState.bgInterval = document.getElementById('config-bg-interval').value || 10;
+            timerState.isRunning = false; // 強制停止
 
-            const now = Date.now();
             if (timerState.mode === 'duration') {
+                const h = parseInt(document.getElementById('config-hour').value) || 0;
                 const m = parseInt(document.getElementById('config-min').value) || 0;
                 const s = parseInt(document.getElementById('config-sec').value) || 0;
-                timerState.endTime = now + (m * 60 + s) * 1000;
+                timerState.remainingMs = (h * 3600 + m * 60 + s) * 1000;
             } else if (timerState.mode === 'target') {
                 const timeStr = document.getElementById('config-target-time').value;
                 if(timeStr) {
                     const [hours, minutes] = timeStr.split(':').map(Number);
                     const target = new Date();
                     target.setHours(hours, minutes, 0, 0);
-                    if (target.getTime() < now) target.setDate(target.getDate() + 1);
+                    if (target.getTime() < Date.now()) target.setDate(target.getDate() + 1);
                     timerState.endTime = target.getTime();
+                    timerState.remainingMs = Math.max(0, timerState.endTime - Date.now());
                 }
             }
             
-            localStorage.setItem('modernWrcTimerData_v2', JSON.stringify(timerState));
-            
-            // Check File Uploads
-            const imgInput = document.getElementById('config-bg-images');
-            if (imgInput.files.length > 0) {
-                bgImages = Array.from(imgInput.files);
-                saveMediaToDB("images", bgImages);
-            }
-            const bgmInput = document.getElementById('config-bgm');
-            if (bgmInput.files.length > 0) {
-                bgmFiles = Array.from(bgmInput.files);
-                saveMediaToDB("bgm", bgmFiles);
-                bgmQueue = []; // Reset queue for new files
-            }
+            displayName.innerText = timerState.name;
+            localStorage.setItem('modernWrcTimerData_v3', JSON.stringify(timerState));
+            updateTimerToggleBtn();
+        }
 
-            updateStaticDisplay();
-            startBgSlideshow();
-            
-            // Start BGM if not playing
-            if(bgmFiles.length > 0 && (!currentAudio || currentAudio.paused)) {
-                playNextBgm();
+        function toggleTimer() {
+            if (timerState.mode === 'clock') return; // 時計モードでは無効化
+
+            if (timerState.isRunning) {
+                // STOP (PAUSE)
+                timerState.isRunning = false;
+                if (timerState.mode === 'duration') {
+                    timerState.remainingMs = Math.max(0, timerState.endTime - Date.now());
+                }
+            } else {
+                // START (RESUME)
+                timerState.isRunning = true;
+                if (timerState.mode === 'duration') {
+                    timerState.endTime = Date.now() + timerState.remainingMs;
+                } else if (timerState.mode === 'target') {
+                    // 目標時間モードの再開時は、目標時間が過去になっていないか再計算する
+                    if (timerState.endTime < Date.now()) {
+                        timerState.endTime += 24 * 60 * 60 * 1000; // 翌日へ
+                    }
+                }
             }
+            localStorage.setItem('modernWrcTimerData_v3', JSON.stringify(timerState));
+            updateTimerToggleBtn();
+        }
+
+        function updateTimerToggleBtn() {
+            if(timerState.mode === 'clock') {
+                btnTimerToggle.disabled = true;
+                btnTimerToggle.style.opacity = '0.5';
+                btnTimerToggle.innerText = "CLOCK MODE";
+            } else {
+                btnTimerToggle.disabled = false;
+                btnTimerToggle.style.opacity = '1';
+                if (timerState.isRunning) {
+                    btnTimerToggle.classList.remove('btn-green');
+                    btnTimerToggle.classList.add('btn-red');
+                    btnTimerToggle.innerText = "⏸ STOP TIMER";
+                } else {
+                    btnTimerToggle.classList.remove('btn-red');
+                    btnTimerToggle.classList.add('btn-green');
+                    btnTimerToggle.innerText = "▶ START TIMER";
+                }
+            }
+            displayName.innerText = timerState.name;
         }
 
         function updateFormVisibility() {
@@ -532,26 +635,22 @@
             document.getElementById('group-target').classList.toggle('hidden-field', mode !== 'target');
         }
 
-        function updateStaticDisplay() {
-            displayName.innerText = timerState.name;
-            
-            // Multi-color Marquee Logic
-            const text = timerState.marquee;
-            const colors = timerState.marqueeColors.split(',').map(c => c.trim()).filter(c => c);
-            if (colors.length === 0) colors.push('#FFFFFF');
+        // =========================================
+        // REAL-TIME INPUT LISTENERS
+        // =========================================
+        document.getElementById('config-ui-width').addEventListener('input', (e) => {
+            document.documentElement.style.setProperty('--ui-width', `${e.target.value}px`);
+            document.getElementById('val-ui-width').innerText = e.target.value;
+        });
 
-            const styledText = text.split('').map((char, i) => {
-                const color = colors[i % colors.length];
-                return `<span style="color: ${color};">${char}</span>`;
-            }).join('');
-            
-            displayMarquee.innerHTML = styledText;
-            displayMarquee.style.animationDuration = `${timerState.marqueeSpeed}s`;
-            displayMarqueeTrack.style.backgroundColor = `rgba(0, 0, 0, ${timerState.marqueeOpacity})`;
-        }
+        document.getElementById('config-bgm-volume').addEventListener('input', (e) => {
+            const vol = parseFloat(e.target.value);
+            document.getElementById('val-bgm-volume').innerText = Math.round(vol * 100) + '%';
+            if (currentAudio) currentAudio.volume = vol;
+        });
 
         // =========================================
-        // BACKGROUND SLIDESHOW LOGIC
+        // BACKGROUND SLIDESHOW
         // =========================================
         let currentBgIndex = -1;
         let activeLayer = 1;
@@ -578,7 +677,7 @@
         function startBgSlideshow() {
             clearInterval(bgIntervalId);
             if(bgImages.length > 0) {
-                switchBg(); // Immediate change
+                if(currentBgIndex === -1) switchBg(); // Initial load
                 bgIntervalId = setInterval(switchBg, timerState.bgInterval * 1000);
             }
         }
@@ -592,9 +691,8 @@
         function playNextBgm() {
             if (bgmFiles.length === 0) return;
             
-            // Refill & Shuffle Queue if empty
             if (bgmQueue.length === 0) {
-                bgmQueue = [...bgmFiles].sort(() => Math.random() - 0.5);
+                bgmQueue = [...bgmFiles].sort(() => Math.random() - 0.5); // Shuffle
             }
             
             const file = bgmQueue.shift();
@@ -606,6 +704,7 @@
             }
             
             currentAudio = new Audio(url);
+            currentAudio.volume = document.getElementById('config-bgm-volume').value || 0.5;
             currentAudio.onended = playNextBgm;
             currentAudio.play().catch(e => console.log("Waiting for user interaction to play audio."));
             
@@ -618,24 +717,31 @@
         // UI INTERACTIONS
         // =========================================
         btnSettings.addEventListener('click', () => modal.classList.add('active'));
-        btnClose.addEventListener('click', () => modal.classList.remove('active'));
+        
+        btnClose.addEventListener('click', () => {
+            saveGlobalSettings();
+            modal.classList.remove('active');
+            // Auto-play BGM on first interaction if not playing
+            if(bgmFiles.length > 0 && (!currentAudio || currentAudio.paused)) playNextBgm();
+        });
+
         configMode.addEventListener('change', updateFormVisibility);
         
-        btnStart.addEventListener('click', () => {
-            saveSettings();
-            modal.classList.remove('active');
-        });
+        btnTimerSave.addEventListener('click', saveAndResetTimer);
+        btnTimerToggle.addEventListener('click', toggleTimer);
 
         // =========================================
         // TICK LOGIC
         // =========================================
-        function formatTime(ms) {
+        function formatTimeHHMMSS(ms) {
             if (ms < 0) ms = 0;
             const totalSec = Math.floor(ms / 1000);
-            const m = Math.floor(totalSec / 60);
+            const h = Math.floor(totalSec / 3600);
+            const m = Math.floor((totalSec % 3600) / 60);
             const s = totalSec % 60;
-            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
         }
+
         function formatClock(date) {
             const h = date.getHours().toString().padStart(2, '0');
             const m = date.getMinutes().toString().padStart(2, '0');
@@ -647,8 +753,21 @@
             if (timerState.mode === 'clock') {
                 displayTime.innerText = formatClock(new Date());
             } else {
-                const remaining = timerState.endTime - Date.now();
-                displayTime.innerText = formatTime(remaining);
+                if (timerState.isRunning) {
+                    const remaining = timerState.endTime - Date.now();
+                    timerState.remainingMs = remaining; // 一時停止用にも状態を同期
+                    displayTime.innerText = formatTimeHHMMSS(remaining);
+                    
+                    // 時間切れで自動停止
+                    if (remaining <= 0) {
+                        timerState.isRunning = false;
+                        timerState.remainingMs = 0;
+                        updateTimerToggleBtn();
+                    }
+                } else {
+                    // 停止中は計算された remainingMs を表示し続ける
+                    displayTime.innerText = formatTimeHHMMSS(timerState.remainingMs);
+                }
             }
             requestAnimationFrame(tick);
         }
@@ -657,8 +776,6 @@
         // INITIALIZE
         // =========================================
         loadSettings();
-        updateFormVisibility();
-        updateStaticDisplay();
         requestAnimationFrame(tick);
 
     </script>
