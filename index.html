@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WRC Style Timer Broadcast</title>
+    <title>WRC Style Timer Broadcast (Pixel Perfect)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
     <style>
         /* フォントの定義 */
@@ -16,11 +16,18 @@
             src: url('./GenEiLateGoP_v2.ttf') format('truetype');
         }
 
-        /* 共通変数 */
+        /* 共通変数とリセット */
         :root {
-            --wrc-orange: #FF4500;
-            --bg-dark: rgba(0, 0, 0, 0.7);
+            /* 画像から抽出した正確な色 */
+            --wrc-orange: #FF4100;
+            --wrc-black: #000000;
             --text-light: #ffffff;
+            --text-gray: #bbbbbb;
+            /* 1ピクセル単位の再現のための基準解像度 */
+            --base-width: 1920px;
+            --base-height: 1080px;
+            /* 下部UIの高さ */
+            --ui-height: calc(100vh * (310 / 1080));
         }
 
         body, html {
@@ -33,6 +40,11 @@
             background-color: #000;
         }
 
+        /* 英語/数字フォント強制クラス */
+        .font-wrc-en {
+            font-family: 'WRCCleanBold', sans-serif !important;
+        }
+
         /* 背景画像スライダー */
         #bg-slider {
             position: absolute;
@@ -40,9 +52,9 @@
             z-index: -1;
             background-size: cover;
             background-position: center;
-            transition: background-image 2s ease-in-out; /* ゆっくり切り替え */
+            transition: background-image 2s ease-in-out;
             /* デフォルト背景はいただいた画像 */
-            background-image: url('https://user-images.githubusercontent.com/106093845/213898031-6cbc95dc-ac06-49ba-8b7f-517b6c466c93.png');
+            background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='); /* ダミー */
         }
 
         /* 右上のコントロールボタン */
@@ -56,7 +68,7 @@
         }
 
         button.control-btn {
-            background-color: var(--bg-dark);
+            background-color: rgba(0, 0, 0, 0.7);
             color: var(--text-light);
             border: 1px solid var(--wrc-orange);
             padding: 8px 16px;
@@ -67,117 +79,29 @@
         }
         button.control-btn:hover { background-color: var(--wrc-orange); }
 
-        /* WRCボトムUI本体 */
-        #wrc-ui {
-            position: fixed;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 60%; /* 小さめに */
-            height: 120px;
-            display: flex;
-            z-index: 50;
-            clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); /* カーテン用 */
-        }
-        #wrc-ui.hidden {
-            display: none; /* カーテン通過後に消す */
-        }
-
-        /* 左側のオレンジタイマー領域 */
-        .timer-container {
-            flex: 2;
-            background-color: var(--wrc-orange);
-            color: white;
-            padding: 10px 30px;
-            position: relative;
-            clip-path: polygon(0 0, 100% 0, 95% 100%, 0 100%);
-        }
-
-        .timer-title-area {
-            height: 25px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 5px;
-        }
-        .timer-title {
-            font-family: 'WRCCleanBold', sans-serif;
-            font-size: 20px;
-            text-transform: uppercase;
-        }
-
-        .timer-display {
-            font-family: 'WRCCleanBold', sans-serif;
-            font-size: 64px;
-            text-align: center;
-            letter-spacing: 2px;
-            line-height: 1;
-        }
-
-        /* 流れる文字（マーキー） */
-        .marquee-wrapper {
-            position: absolute;
-            bottom: 5px;
-            left: 10px;
-            right: 40px;
-            overflow: hidden;
-            /* 端を半透明にするマスク */
-            mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
-            -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
-        }
-        .marquee-content {
-            display: inline-block;
-            white-space: nowrap;
-            color: white;
-            font-size: 16px;
-            transform: translateX(100%); /* 右端からくる */
-            animation: marquee 20s linear infinite;
-        }
-        @keyframes marquee {
-            0% { transform: translateX(100%); }
-            100% { transform: translateX(-100%); }
-        }
-        /* 日本語と英語でフォントを使い分ける */
-        .marquee-content :not(lang("en")) { font-family: 'GenEiLateGoP_v2', sans-serif; }
-        .marquee-content lang("en") { font-family: 'WRCCleanBold', sans-serif; }
-
-
-        /* 右側のステージ情報領域（ダミー） */
-        .stage-container {
-            flex: 1;
-            background-color: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 10px 20px;
-            margin-left: -5%; /* 左のオレンジに重ねる */
-            clip-path: polygon(10% 0, 100% 0, 100% 100%, 0 100%);
-            display: flex;
-            flex-direction: column;
-            font-size: 14px;
-        }
-        /* ダミーテキストもWRCCleanBold */
-        .stage-info { font-family: 'WRCCleanBold', sans-serif; margin-bottom: 5px;}
-        .leaderboard { font-family: 'WRCCleanBold', sans-serif; flex-grow: 1;}
-        .entry { display: flex; justify-content: space-between; margin-bottom: 2px;}
-        .pos { color: var(--wrc-orange); width: 25px;}
-        .driver { flex-grow: 1; margin: 0 5px;}
-        .time { width: 60px; text-align: right;}
-        .gap { width: 50px; text-align: right; color: #aaa;}
-        
-        .logos { display: flex; gap: 10px; margin-top: auto; justify-content: flex-end;}
-        .logos img { height: 15px; }
-
-
-        /* オレンジのカーテンアニメーション */
-        #curtain {
+        /* WRCボトムUIコンテナ */
+        #wrc-ui-container {
             position: fixed;
             bottom: 0;
             left: 0;
             width: 100%;
-            height: 120px;
+            height: var(--ui-height);
+            z-index: 50;
+            pointer-events: none; /* コンテナはクリックを通す */
+        }
+
+        /* オレンジのカーテンアニメーション */
+        #curtain {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             background-color: var(--wrc-orange);
             z-index: 60;
             transform: translateX(-100%); /* 最初は左に隠す */
             display: none;
+            clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
         }
         #curtain.animate {
             display: block;
@@ -187,6 +111,127 @@
             0% { transform: translateX(-100%); }
             50% { transform: translateX(0%); }
             100% { transform: translateX(100%); }
+        }
+
+        /* WRCボトムUI本体 (1ピクセル単位で再現) */
+        #wrc-ui {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            opacity: 1;
+            transition: opacity 0.3s ease-in-out;
+            pointer-events: auto; /* UI本体はクリック可能 */
+        }
+        #wrc-ui.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* 左側のオレンジタイマーセクション */
+        .ui-left-box {
+            position: relative;
+            flex: 0 0 calc(100% * (1080 / 1920)); /* 画像から幅を測定 */
+            height: 100%;
+            background-color: var(--wrc-orange);
+            clip-path: polygon(0 0, 100% 0, calc(100% - 30px) 100%, 0 100%); /* 正確なカット */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end; /* 下端に合わせる */
+            padding-bottom: calc(100vh * (20 / 1080)); /* 下余白 */
+        }
+
+        /* 上部オレンジ線とタイトル */
+        .ui-title-area {
+            position: absolute;
+            top: calc(100vh * (25 / 1080)); /* 上位置 */
+            left: 0;
+            width: 100%;
+            height: calc(100vh * (2 / 1080)); /* 線の厚さ */
+            background-color: var(--wrc-orange);
+            display: flex;
+            align-items: center;
+        }
+        .ui-title {
+            position: absolute;
+            left: calc(100% * (120 / 1080)); /* タイトルの位置 */
+            top: calc(100vh * (-3 / 1080)); /* 線の上の位置 */
+            font-family: 'WRCCleanBold', sans-serif;
+            font-size: calc(100vh * (36 / 1080)); /* サイズ */
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* タイマー表示 (WRCCleanBold) */
+        .timer-display {
+            font-family: 'WRCCleanBold', sans-serif;
+            font-size: calc(100vh * (140 / 1080)); /* サイズ */
+            color: var(--text-light);
+            text-align: center;
+            letter-spacing: 4px;
+            line-height: 1;
+            margin-bottom: calc(100vh * (-10 / 1080)); /* 調整 */
+        }
+
+        /* 流れる文字（マーキー） */
+        .marquee-wrapper {
+            width: 80%; /* 幅を狭く */
+            margin: 0 auto; /* 中央寄せ */
+            overflow: hidden;
+            /* 端を半透明にするマスク */
+            mask-image: linear-gradient(to right, rgba(0,0,0,0), rgba(0,0,0,1) 10%, rgba(0,0,0,1) 90%, rgba(0,0,0,0));
+            -webkit-mask-image: linear-gradient(to right, rgba(0,0,0,0), rgba(0,0,0,1) 10%, rgba(0,0,0,1) 90%, rgba(0,0,0,0));
+        }
+        .marquee-content {
+            display: inline-block;
+            white-space: nowrap;
+            color: var(--text-light);
+            font-size: calc(100vh * (28 / 1080)); /* サイズ */
+            transform: translateX(100%); /* 右端からくる */
+            animation: marquee 20s linear infinite;
+        }
+        @keyframes marquee {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+        }
+        /* 日本語と英語でフォントを使い分けるためのタグ */
+        lang[en] { font-family: 'WRCCleanBold', sans-serif; }
+        lang[ja] { font-family: 'GenEiLateGoP_v2', sans-serif; }
+
+
+        /* 右側のブラックロゴセクション */
+        .ui-right-box {
+            flex: 1; /* 残り幅 */
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85); /* 半透明ブラック */
+            margin-left: -30px; /* 左に重ねる */
+            clip-path: polygon(30px 0, 100% 0, 100% 100%, 0 100%); /* 正確なカット */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end; /* 下端に合わせる */
+            padding-bottom: calc(100vh * (20 / 1080)); /* 下余白 */
+            padding-right: calc(100% * (40 / 1920)); /* 右余白 */
+        }
+
+        /* 選手とSS情報は削除 */
+
+        /* ロゴセクション */
+        .logos {
+            display: flex;
+            gap: calc(100% * (25 / 1920)); /* 間隔 */
+            margin-top: auto; /* 下に配置 */
+            justify-content: flex-end; /* 右寄せ */
+            align-items: center;
+        }
+        /* ロゴはテキストで再現 (WRCCleanBold) */
+        .logo-text {
+            font-family: 'WRCCleanBold', sans-serif;
+            font-size: calc(100vh * (24 / 1080)); /* サイズ */
+            color: var(--text-gray);
+            text-transform: uppercase;
         }
 
 
@@ -199,6 +244,7 @@
         .settings-content {
             background: #222; padding: 30px; border-radius: 8px; width: 600px; max-height: 80vh; overflow-y: auto;
             border: 1px solid var(--wrc-orange);
+            font-family: 'GenEiLateGoP_v2', sans-serif; /* 日本語 */
         }
         .form-group { margin-bottom: 20px; }
         .form-group label { display: block; margin-bottom: 5px; color: var(--wrc-orange); }
@@ -206,12 +252,13 @@
             width: 100%; padding: 8px; box-sizing: border-box; background: #333; color: white; border: 1px solid #555;
             font-family: 'GenEiLateGoP_v2', sans-serif;
         }
+        input.font-wrc-en { font-family: 'WRCCleanBold', sans-serif !important; }
 
         /* 設定内のBGM情報 */
         #settings-bgm-info {
             background: #333; padding: 10px; border-radius: 4px; margin-top: 10px; display: flex; align-items: center; gap: 15px;
         }
-        #settings-bgm-info img { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; }
+        #settings-bgm-art { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; }
         
     </style>
 </head>
@@ -224,29 +271,27 @@
         <button id="open-settings" class="control-btn">設定</button>
     </div>
 
-    <div id="curtain"></div>
+    <div id="wrc-ui-container">
+        <div id="curtain"></div>
 
-    <div id="wrc-ui">
-        <div class="timer-container">
-            <div class="timer-title-area">
-                <span class="timer-title" id="ui-title">WRC LIVE STAGE</span>
-            </div>
-            <div class="timer-display" id="timer-display">00:00:00</div>
-            <div class="marquee-wrapper">
-                <div class="marquee-content" id="ui-marquee">
-                    <span>ここに流れるニュースや情報を入力します。設定から変更可能です。 <lang en>WRC 2024</lang></span>
+        <div id="wrc-ui">
+            <div class="ui-left-box">
+                <div class="ui-title-area">
+                    <span class="ui-title">WRC LIVE STAGE</span>
+                </div>
+                <div class="timer-display font-wrc-en" id="timer-display">00:00:00</div>
+                <div class="marquee-wrapper">
+                    <div class="marquee-content" id="ui-marquee">
+                        <span><lang ja>ここに流れるニュースや情報を入力します。設定から変更可能です。</lang> <lang en>WRC 2024</lang></span>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="stage-container">
-            <div class="stage-info">SS5 St-Loup <span style="font-family: GenEiLateGoP_v2">GenEiLateGoP_v2</span></div>
-            <div class="leaderboard">
-                <div class="entry"><span class="pos">P1</span> <span class="driver">OGIER</span> <span class="time">1:34.2</span> <span class="gap">+0.0</span></div>
-                <div class="entry"><span class="pos">P2</span> <span class="driver">TÄNAK</span> <span class="time">1:34.5</span> <span class="gap">+0.3</span></div>
-                <div class="entry"><span class="pos">P3</span> <span class="driver">NEUVILLE</span> <span class="time">1:35.1</span> <span class="gap">+0.9</span></div>
-            </div>
-            <div class="logos">
-                <span style="font-family: WRCCleanBold; font-size: 10px; color: #555;">WRC HYBRID M-SPORT</span>
+            <div class="ui-right-box">
+                <div class="logos">
+                    <span class="logo-text">WRC</span>
+                    <span class="logo-text">HYBRID</span>
+                    <span class="logo-text">M-SPORT FORD</span>
+                </div>
             </div>
         </div>
     </div>
@@ -266,23 +311,24 @@
 
             <div id="duration-inputs" class="form-group">
                 <label>タイマー時間</label>
-                <input type="number" id="timer-hours" placeholder="時間" value="0" min="0" style="width: 48%;">
-                <input type="number" id="timer-minutes" placeholder="分" value="10" min="0" max="59" style="width: 48%;">
+                <input type="number" id="timer-hours" placeholder="時間" value="0" min="0" style="width: 48%;" class="font-wrc-en">
+                <input type="number" id="timer-minutes" placeholder="分" value="10" min="0" max="59" style="width: 48%;" class="font-wrc-en">
             </div>
 
             <div id="target-inputs" class="form-group" style="display: none;">
                 <label>目標時刻</label>
-                <input type="time" id="timer-target-time">
+                <input type="time" id="timer-target-time" class="font-wrc-en">
             </div>
 
             <div class="form-group">
                 <label>タイトルテキスト (オレンジ線上の文字)</label>
-                <input type="text" id="setting-title" value="WRC LIVE STAGE">
+                <input type="text" id="setting-title" value="WRC LIVE STAGE" class="font-wrc-en">
             </div>
 
             <div class="form-group">
-                <label>スクロールテキスト (ループする文字)</label>
+                <label>スクロールテキスト (ループする文字、日本語と英語の使い分け可)</label>
                 <input type="text" id="setting-marquee" value="ここに流れるニュースや情報を入力します。設定から変更可能です。 WRC 2024">
+                <small style="color: #888;">英語部分を <code style="color: #aaa;">&lt;lang en&gt;WRC&lt;/lang&gt;</code> で囲むと英語フォントになります。</small>
             </div>
 
             <div class="form-group">
@@ -298,7 +344,7 @@
                     <img id="settings-bgm-art" src="" alt="Album Art">
                     <div>
                         <div style="font-size: 12px; color: #aaa;">Now Playing</div>
-                        <div id="settings-bgm-title" style="font-family: WRCCleanBold;">Track Name</div>
+                        <div id="settings-bgm-title" class="font-wrc-en">Track Name</div>
                         <button id="next-bgm-btn" class="control-btn" style="margin-top:5px; padding: 2px 8px; font-size: 12px;">次の曲へ</button>
                     </div>
                 </div>
@@ -315,7 +361,7 @@
             targetTimestamp: 0,
             mode: 'duration',
             title: 'WRC LIVE STAGE',
-            marquee: 'ここに流れるニュースや情報を入力します。設定から変更可能です。 WRC 2024',
+            marquee: 'ここに流れるニュースや情報を入力します。設定から変更可能です。 <lang en>WRC 2024</lang>',
             bgImages: [], // DataURLの配列
             bgmFiles: [], // File Objectデータの配列 (IndexedDB保存用)
             bgmCurrentIndex: 0,
@@ -347,7 +393,9 @@
             if (appState.bgmFiles.length > 0) playBGM();
 
             // UIの初期表示状態
-            if (!appState.uiVisible) wrcUi.classList.add('hidden');
+            if (!appState.uiVisible) {
+                wrcUi.classList.add('hidden');
+            }
 
             // 定期的なタイマー更新
             setInterval(updateTimerDisplay, 1000);
@@ -358,6 +406,7 @@
         function updateTimerDisplay() {
             if (appState.mode === 'current') {
                 const now = new Date();
+                // 数字にはWRCCleanBold
                 timerDisplay.textContent = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
                 return;
             }
@@ -417,7 +466,7 @@
             
             document.getElementById('settings-bgm-title').textContent = fileData.name;
             // Dummy art
-            document.getElementById('settings-bgm-art').src = "data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23FF4500'%3E%3Cpath d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z'/%3E%3C/svg%3E";
+            document.getElementById('settings-bgm-art').src = "data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23FF4100'%3E%3Cpath d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z'/%3E%3C/svg%3E";
 
             audioPlayer.onended = () => {
                 nextBGM();
@@ -439,9 +488,9 @@
             // カーテンが真ん中に来たタイミングでUIを切り替える (0.5s後)
             setTimeout(() => {
                 if (appState.uiVisible) {
-                    wrcUi.classList.add('hidden');
+                    wrcUi.classList.add('hidden'); // スムーズなフェードアウト
                 } else {
-                    wrcUi.classList.remove('hidden');
+                    wrcUi.classList.remove('hidden'); // スムーズなフェードイン
                 }
                 appState.uiVisible = !appState.uiVisible;
                 localforage.setItem('wrcAppState', appState); // 状態を保存
@@ -536,8 +585,8 @@
         // UIテキストの更新
         function updateUITexts() {
             uiTitle.textContent = appState.title;
-            // マーキー内のテキスト更新、<lang>タグはそのまま
-            uiMarquee.innerHTML = appState.marquee;
+            // マーキー内のテキスト更新、<lang>タグを解釈してHTMLとして挿入
+            uiMarquee.innerHTML = '<span>' + appState.marquee + '</span>';
             
             // モーダル側にも反映
             document.getElementById('timer-mode').value = appState.mode;
