@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WRC Style Timer Broadcast (Pixel Perfect)</title>
+    <title>WRC Style Timer Broadcast (Image-Based)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
     <style>
         /* フォントの定義 */
@@ -20,14 +20,15 @@
         :root {
             /* 画像から抽出した正確な色 */
             --wrc-orange: #FF4100;
-            --wrc-black: #000000;
             --text-light: #ffffff;
             --text-gray: #bbbbbb;
             /* 1ピクセル単位の再現のための基準解像度 */
             --base-width: 1920px;
             --base-height: 1080px;
-            /* 下部UIの高さ */
-            --ui-height: calc(100vh * (310 / 1080));
+            /* 画像からUI部分の割合 */
+            --base-ui-height: 310px; 
+            --ui-height-ratio: calc(310 / 1080);
+            --ui-height: calc(100vh * var(--ui-height-ratio));
         }
 
         body, html {
@@ -113,14 +114,16 @@
             100% { transform: translateX(100%); }
         }
 
-        /* WRCボトムUI本体 (1ピクセル単位で再現) */
+        /* WRCボトムUI本体 (画像ベース) */
         #wrc-ui {
             position: absolute;
             bottom: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            display: flex;
+            background-image: url('./bg-image.png'); /* いただいた画像 */
+            background-size: cover;
+            background-position: bottom center;
             opacity: 1;
             transition: opacity 0.3s ease-in-out;
             pointer-events: auto; /* UI本体はクリック可能 */
@@ -130,57 +133,66 @@
             pointer-events: none;
         }
 
-        /* 左側のオレンジタイマーセクション */
-        .ui-left-box {
-            position: relative;
-            flex: 0 0 calc(100% * (1080 / 1920)); /* 画像から幅を測定 */
-            height: 100%;
+        /* 画像上のテキストを隠すマスク (オレンジボックス) */
+        .mask {
+            position: absolute;
             background-color: var(--wrc-orange);
-            clip-path: polygon(0 0, 100% 0, calc(100% - 30px) 100%, 0 100%); /* 正確なカット */
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end; /* 下端に合わせる */
-            padding-bottom: calc(100vh * (20 / 1080)); /* 下余白 */
+        }
+        .title-mask {
+            top: calc(100vh * (10 / 1080));
+            left: calc(100% * (100 / 1920));
+            width: calc(100% * (400 / 1920));
+            height: calc(100vh * (60 / 1080));
+        }
+        .timer-mask {
+            top: calc(100vh * (70 / 1080));
+            left: calc(100% * (120 / 1920));
+            width: calc(100% * (960 / 1920));
+            height: calc(100vh * (170 / 1080));
+        }
+        .marquee-mask {
+            bottom: calc(100vh * (30 / 1080));
+            left: calc(100% * (100 / 1920));
+            width: calc(100% * (960 / 1920));
+            height: calc(100vh * (40 / 1080));
         }
 
-        /* 上部オレンジ線とタイトル */
-        .ui-title-area {
-            position: absolute;
-            top: calc(100vh * (25 / 1080)); /* 上位置 */
-            left: 0;
-            width: 100%;
-            height: calc(100vh * (2 / 1080)); /* 線の厚さ */
-            background-color: var(--wrc-orange);
-            display: flex;
-            align-items: center;
-        }
+        /* 動的なテキスト要素（画像上の正しい位置に重ねる） */
         .ui-title {
             position: absolute;
+            top: calc(100vh * (25 / 1080)); /* 上位置 */
             left: calc(100% * (120 / 1080)); /* タイトルの位置 */
-            top: calc(100vh * (-3 / 1080)); /* 線の上の位置 */
             font-family: 'WRCCleanBold', sans-serif;
             font-size: calc(100vh * (36 / 1080)); /* サイズ */
             color: var(--text-light);
             text-transform: uppercase;
             letter-spacing: 2px;
+            z-index: 2; /* マスクの上に配置 */
         }
 
-        /* タイマー表示 (WRCCleanBold) */
         .timer-display {
+            position: absolute;
+            top: calc(100vh * (80 / 1080)); /* 上位置 */
+            left: 50%; /* 中央寄せ */
+            transform: translateX(-50%);
             font-family: 'WRCCleanBold', sans-serif;
             font-size: calc(100vh * (140 / 1080)); /* サイズ */
             color: var(--text-light);
             text-align: center;
             letter-spacing: 4px;
             line-height: 1;
-            margin-bottom: calc(100vh * (-10 / 1080)); /* 調整 */
+            z-index: 2; /* マスクの上に配置 */
         }
 
         /* 流れる文字（マーキー） */
         .marquee-wrapper {
-            width: 80%; /* 幅を狭く */
-            margin: 0 auto; /* 中央寄せ */
+            position: absolute;
+            bottom: calc(100vh * (20 / 1080)); /* 下位置 */
+            left: calc(100% * (100 / 1920)); /* 左位置 */
+            width: calc(100% * (880 / 1920)); /* 幅 */
+            height: calc(100vh * (40 / 1080)); /* 高さ */
             overflow: hidden;
+            z-index: 2; /* マスクの上に配置 */
             /* 端を半透明にするマスク */
             mask-image: linear-gradient(to right, rgba(0,0,0,0), rgba(0,0,0,1) 10%, rgba(0,0,0,1) 90%, rgba(0,0,0,0));
             -webkit-mask-image: linear-gradient(to right, rgba(0,0,0,0), rgba(0,0,0,1) 10%, rgba(0,0,0,1) 90%, rgba(0,0,0,0));
@@ -200,39 +212,6 @@
         /* 日本語と英語でフォントを使い分けるためのタグ */
         lang[en] { font-family: 'WRCCleanBold', sans-serif; }
         lang[ja] { font-family: 'GenEiLateGoP_v2', sans-serif; }
-
-
-        /* 右側のブラックロゴセクション */
-        .ui-right-box {
-            flex: 1; /* 残り幅 */
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.85); /* 半透明ブラック */
-            margin-left: -30px; /* 左に重ねる */
-            clip-path: polygon(30px 0, 100% 0, 100% 100%, 0 100%); /* 正確なカット */
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end; /* 下端に合わせる */
-            padding-bottom: calc(100vh * (20 / 1080)); /* 下余白 */
-            padding-right: calc(100% * (40 / 1920)); /* 右余白 */
-        }
-
-        /* 選手とSS情報は削除 */
-
-        /* ロゴセクション */
-        .logos {
-            display: flex;
-            gap: calc(100% * (25 / 1920)); /* 間隔 */
-            margin-top: auto; /* 下に配置 */
-            justify-content: flex-end; /* 右寄せ */
-            align-items: center;
-        }
-        /* ロゴはテキストで再現 (WRCCleanBold) */
-        .logo-text {
-            font-family: 'WRCCleanBold', sans-serif;
-            font-size: calc(100vh * (24 / 1080)); /* サイズ */
-            color: var(--text-gray);
-            text-transform: uppercase;
-        }
 
 
         /* 設定モーダル */
@@ -275,22 +254,15 @@
         <div id="curtain"></div>
 
         <div id="wrc-ui">
-            <div class="ui-left-box">
-                <div class="ui-title-area">
-                    <span class="ui-title">WRC LIVE STAGE</span>
-                </div>
-                <div class="timer-display font-wrc-en" id="timer-display">00:00:00</div>
-                <div class="marquee-wrapper">
-                    <div class="marquee-content" id="ui-marquee">
-                        <span><lang ja>ここに流れるニュースや情報を入力します。設定から変更可能です。</lang> <lang en>WRC 2024</lang></span>
-                    </div>
-                </div>
-            </div>
-            <div class="ui-right-box">
-                <div class="logos">
-                    <span class="logo-text">WRC</span>
-                    <span class="logo-text">HYBRID</span>
-                    <span class="logo-text">M-SPORT FORD</span>
+            <div class="mask title-mask"></div>
+            <div class="mask timer-mask"></div>
+            <div class="mask marquee-mask"></div>
+
+            <span class="ui-title font-wrc-en" id="ui-title">WRC LIVE STAGE</span>
+            <div class="timer-display font-wrc-en" id="timer-display">00:00:00</div>
+            <div class="marquee-wrapper">
+                <div class="marquee-contentJa" id="ui-marquee">
+                    <span><lang ja>ここに流れるニュースや情報を入力します。設定から変更可能です。</lang> <lang en>WRC 2024</lang></span>
                 </div>
             </div>
         </div>
@@ -446,7 +418,7 @@
         // --- BGMプレイヤー (シャッフルループ) ---
         function shuffleArray(array) {
             for (let i = array.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
+                const j = Math.floor(Random.nextInt(i + 1));
                 [array[i], array[j]] = [array[j], array[i]];
             }
         }
